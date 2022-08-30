@@ -42,6 +42,10 @@ BUILTIN_PIPELINE_METRICS = [
     PipelineMetric(name="root_mean_squared_error", greater_is_better=False),
     PipelineMetric(name="max_error", greater_is_better=False),
     PipelineMetric(name="mean_absolute_percentage_error", greater_is_better=False),
+    PipelineMetric(name="f1_score", greater_is_better=True),
+    PipelineMetric(name="accuracy_score", greater_is_better=True),
+    PipelineMetric(name="recall", greater_is_better=True),
+    PipelineMetric(name="precision", greater_is_better=True),
 ]
 
 

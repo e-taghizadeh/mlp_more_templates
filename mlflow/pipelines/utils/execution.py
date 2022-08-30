@@ -309,6 +309,8 @@ def _create_makefile(pipeline_root_path, execution_directory_path, template) -> 
 
     if template == "regression/v1":
         makefile_to_use = _REGRESSION_MAKEFILE_FORMAT_STRING
+    elif template == "classification/v1":
+        makefile_to_use = _CLASSIFICATION_MAKEFILE_FORMAT_STRING
     else:
         raise ValueError(f"Invalid template: {template}")
 
@@ -402,6 +404,86 @@ class _MakefilePathFormat:
 # that need to be formatted (substituted) with the pipeline root directory in order to produce a
 # valid Makefile
 _REGRESSION_MAKEFILE_FORMAT_STRING = r"""
+# Define `ingest` as a target with no dependencies to ensure that it runs whenever a user explicitly
+# invokes the MLflow Pipelines ingest step, allowing them to reingest data on-demand
+ingest:
+	cd {path:prp/} && \
+        python -c "from mlflow.pipelines.steps.ingest import IngestStep; IngestStep.from_step_config_path(step_config_path='{path:exe/steps/ingest/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/ingest/outputs}')"
+
+# Define a separate target for the ingested dataset that recursively invokes make with the `ingest`
+# target. Downstream steps depend on the ingested dataset target, rather than the `ingest` target,
+# ensuring that data is only ingested for downstream steps if it is not already present on the
+# local filesystem
+steps/ingest/outputs/dataset.parquet: steps/ingest/conf.yaml {path:prp/steps/ingest.py}
+	$(MAKE) ingest
+
+split_objects = steps/split/outputs/train.parquet steps/split/outputs/validation.parquet steps/split/outputs/test.parquet
+
+split: $(split_objects)
+
+steps/%/outputs/train.parquet steps/%/outputs/validation.parquet steps/%/outputs/test.parquet: {path:prp/steps/split.py} steps/ingest/outputs/dataset.parquet steps/split/conf.yaml
+	cd {path:prp/} && \
+        python -c "from mlflow.pipelines.steps.split import SplitStep; SplitStep.from_step_config_path(step_config_path='{path:exe/steps/split/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/split/outputs}')"
+
+transform_objects = steps/transform/outputs/transformer.pkl steps/transform/outputs/transformed_training_data.parquet steps/transform/outputs/transformed_validation_data.parquet
+
+transform: $(transform_objects)
+
+steps/%/outputs/transformer.pkl steps/%/outputs/transformed_training_data.parquet steps/%/outputs/transformed_validation_data.parquet: {path:prp/steps/transform.py} steps/split/outputs/train.parquet steps/split/outputs/validation.parquet steps/transform/conf.yaml
+	cd {path:prp/} && \
+        python -c "from mlflow.pipelines.steps.transform import TransformStep; TransformStep.from_step_config_path(step_config_path='{path:exe/steps/transform/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/transform/outputs}')"
+
+train_objects = steps/train/outputs/model steps/train/outputs/run_id
+
+train: $(train_objects)
+
+steps/%/outputs/model steps/%/outputs/run_id: {path:prp/steps/train.py} {path:prp/steps/custom_metrics.py} steps/transform/outputs/transformed_training_data.parquet steps/transform/outputs/transformed_validation_data.parquet steps/split/outputs/train.parquet steps/split/outputs/validation.parquet steps/transform/outputs/transformer.pkl steps/train/conf.yaml
+	cd {path:prp/} && \
+        python -c "from mlflow.pipelines.steps.train import TrainStep; TrainStep.from_step_config_path(step_config_path='{path:exe/steps/train/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/train/outputs}')"
+
+evaluate_objects = steps/evaluate/outputs/model_validation_status
+
+evaluate: $(evaluate_objects)
+
+steps/%/outputs/model_validation_status: {path:prp/steps/custom_metrics.py} steps/train/outputs/model steps/split/outputs/validation.parquet steps/split/outputs/test.parquet steps/train/outputs/run_id steps/evaluate/conf.yaml
+	cd {path:prp/} && \
+        python -c "from mlflow.pipelines.steps.evaluate import EvaluateStep; EvaluateStep.from_step_config_path(step_config_path='{path:exe/steps/evaluate/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/evaluate/outputs}')"
+
+register_objects = steps/register/outputs/registered_model_version.json
+
+register: $(register_objects)
+
+steps/%/outputs/registered_model_version.json: steps/train/outputs/run_id steps/register/conf.yaml steps/evaluate/outputs/model_validation_status
+	cd {path:prp/} && \
+        python -c "from mlflow.pipelines.steps.register import RegisterStep; RegisterStep.from_step_config_path(step_config_path='{path:exe/steps/register/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/register/outputs}')"
+
+# Define `ingest_scoring` as a target with no dependencies to ensure that it runs whenever a user explicitly
+# invokes the MLflow Pipelines ingest_scoring step, allowing them to reingest data on-demand
+ingest_scoring:
+	cd {path:prp/} && \
+        python -c "from mlflow.pipelines.steps.ingest import IngestScoringStep; IngestScoringStep.from_step_config_path(step_config_path='{path:exe/steps/ingest_scoring/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/ingest_scoring/outputs}')"
+
+# Define a separate target for the ingested dataset that recursively invokes make with the `ingest`
+# target. Downstream steps depend on the ingested dataset target, rather than the `ingest` target,
+# ensuring that data is only ingested for downstream steps if it is not already present on the
+# local filesystem
+steps/ingest_scoring/outputs/dataset.parquet: steps/ingest_scoring/conf.yaml {path:prp/steps/ingest_scoring.py}
+	$(MAKE) ingest_scoring
+
+predict_objects = steps/predict/outputs/scored.parquet
+
+predict: $(predict_objects)
+
+steps/%/outputs/scored.parquet: steps/ingest_scoring/outputs/dataset.parquet steps/predict/conf.yaml
+	cd {path:prp/} && \
+        python -c "from mlflow.pipelines.steps.predict import PredictStep; PredictStep.from_step_config_path(step_config_path='{path:exe/steps/predict/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/predict/outputs}')"
+
+clean:
+	rm -rf $(split_objects) $(transform_objects) $(train_objects) $(evaluate_objects) $(predict_objects)
+"""
+
+
+_CLASSIFICATION_MAKEFILE_FORMAT_STRING = r"""
 # Define `ingest` as a target with no dependencies to ensure that it runs whenever a user explicitly
 # invokes the MLflow Pipelines ingest step, allowing them to reingest data on-demand
 ingest:

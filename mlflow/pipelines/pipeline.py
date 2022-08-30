@@ -65,7 +65,7 @@ class _BasePipeline:
         return self._profile
 
     @experimental
-    def run(self, step: str = None) -> None:
+    def run(self, step: str = None, model_type: str = "regressor") -> None:
         """
         Runs a step in the pipeline, or the entire pipeline if a step is not specified.
 
@@ -76,7 +76,7 @@ class _BasePipeline:
         """
 
         # Save the run parameters for later
-        self._run_args = {"step": step}
+        self._run_args = {"step": step, "model_type": model_type}
 
         # TODO Record performance here.
         # Always resolve the steps to load latest step modules before execution.
@@ -209,7 +209,7 @@ class _BasePipeline:
         pass
 
 
-from mlflow.pipelines.regression.v1.pipeline import RegressionPipeline
+# from mlflow.pipelines.regression.v1.pipeline import RegressionPipeline
 
 
 @experimental
@@ -231,7 +231,7 @@ class Pipeline:
     """
 
     @experimental
-    def __new__(cls, profile: str) -> RegressionPipeline:
+    def __new__(cls, profile: str) -> _BasePipeline:
         """
         Creates an instance of an MLflow Pipeline for a particular ML problem or MLOps task based
         on the current working directory and supplied configuration. The current working directory

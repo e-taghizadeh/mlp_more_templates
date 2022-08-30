@@ -1,12 +1,12 @@
 """
-.. _mlflow-regression-pipeline:
+.. _mlflow-classification-pipeline:
 
-The MLflow Regression Pipeline is an MLflow Pipeline for developing high-quality regression models.
-It is designed for developing models using scikit-learn and frameworks that integrate with
-scikit-learn, such as the ``XGBRegressor`` API from XGBoost. The corresponding pipeline
-template repository is available at https://github.com/mlflow/mlp-regression-template, and the
-:py:class:`RegressionPipeline API Documentation <RegressionPipeline>` provides instructions for
-executing the pipeline and inspecting its results.
+The MLflow Classification Pipeline is an MLflow Pipeline 
+for developing high-quality classification models. It is designed 
+for developing models using scikit-learn and frameworks that integrate with
+scikit-learn. 
+The :py:class:`ClassidicationPipeline API Documentation <ClassificationPipeline>` 
+provides instructions for executing the pipeline and inspecting its results.
 
 The training pipeline contains the following sequential steps:
 
@@ -30,7 +30,7 @@ The pipeline steps are defined as follows:
             use the updated dataset in the pipeline. The **ingest** step does *not* automatically
             detect changes in the dataset.
 
-   .. _mlflow-regression-pipeline-split-step:
+   .. _mlflow-classification-pipeline-split-step:
 
    - **split**
       - The **split** step splits the ingested dataset produced by the **ingest** step into
@@ -48,7 +48,7 @@ The pipeline steps are defined as follows:
         transformed datasets that are used by subsequent steps for estimator training and model
         performance evaluation.
 
-   .. _mlflow-regression-pipeline-train-step:
+   .. _mlflow-classification-pipeline-train-step:
 
    - **train**
       - The **train** step uses the transformed training dataset output from the **transform**
@@ -109,7 +109,7 @@ The pipeline steps are defined as follows:
 import os
 import logging
 
-from mlflow.pipelines.regression.v1 import dag_help_strings
+from mlflow.pipelines.classification.v1 import dag_help_strings
 from mlflow.tracking.client import MlflowClient
 from mlflow.pipelines.pipeline import _BasePipeline
 from mlflow.pipelines.steps.ingest import IngestStep, IngestScoringStep
@@ -137,12 +137,10 @@ _logger = logging.getLogger(__name__)
 
 
 @experimental
-class RegressionPipeline(_BasePipeline):
+class ClassificationPipeline(_BasePipeline):
     """
-    A pipeline for developing high-quality regression models. The pipeline is designed for
-    developing models using scikit-learn and frameworks that integrate with scikit-learn,
-    such as the ``XGBRegressor`` API from XGBoost. The corresponding pipeline
-    template repository is available at https://github.com/mlflow/mlp-regression-template.
+    A pipeline for developing high-quality classification models. The pipeline is designed for
+    developing models using scikit-learn and frameworks that integrate with scikit-learn. 
     The training pipeline contains the following sequential steps:
 
     **ingest** -> **split** -> **transform** -> **train** -> **evaluate** -> **register**
@@ -157,18 +155,18 @@ class RegressionPipeline(_BasePipeline):
         import os
         from mlflow.pipelines import Pipeline
 
-        os.chdir("~/mlp-regression-template")
-        regression_pipeline = Pipeline(profile="local")
+        os.chdir("~/mlp-classification-template")
+        classification_pipeline = Pipeline(profile="local")
         # Display a visual overview of the pipeline graph
-        regression_pipeline.inspect()
+        classification_pipeline.inspect()
         # Run the full pipeline
-        regression_pipeline.run()
+        classification_pipeline.run()
         # Display a summary of results from the 'train' step, including the trained model
         # and associated performance metrics computed from the training & validation datasets
-        regression_pipeline.inspect(step="train")
+        classification_pipeline.inspect(step="train")
         # Display a summary of results from the 'evaluate' step, including model explanations
         # computed from the validation dataset and metrics computed from the test dataset
-        regression_pipeline.inspect(step="evaluate")
+        classification_pipeline.inspect(step="evaluate")
     """
 
     _PIPELINE_STEPS = (
@@ -305,7 +303,7 @@ class RegressionPipeline(_BasePipeline):
         to any of its dependent steps (e.g. changes to the pipeline's ``pipeline.yaml`` file or
         ``steps/ingest.py`` file) since the previous execution.
 
-        :param step: String name of the step to run within the regression pipeline. The step and
+        :param step: String name of the step to run within the classification pipeline. The step and
                      its dependencies are executed sequentially. If a step is not specified, the
                      entire pipeline is executed. Supported steps, in their order of execution, are:
 
@@ -358,25 +356,25 @@ class RegressionPipeline(_BasePipeline):
             import os
             from mlflow.pipelines import Pipeline
 
-            os.chdir("~/mlp-regression-template")
-            regression_pipeline = Pipeline(profile="local")
+            os.chdir("~/mlp-classification-template")
+            classification_pipeline = Pipeline(profile="local")
             # Run the 'train' step and preceding steps
-            regression_pipeline.run(step="train")
+            classification_pipeline.run(step="train")
             # Run the 'register' step and preceding steps; the 'train' step and all steps
             # prior to 'train' are not re-executed because their outputs are already cached
-            regression_pipeline.run(step="register")
+            classification_pipeline.run(step="register")
             # Run all pipeline steps; equivalent to running 'register'; no steps are re-executed
             # because the outputs of all steps are already cached
-            regression_pipeline.run()
+            classification_pipeline.run()
         """
-        return super().run(step=step, model_type="regressor")
+        return super().run(step=step, model_type="classifier")
 
     @experimental
     def get_artifact(self, artifact_name: str) -> Optional[Any]:
         """
         Reads an artifact from the pipeline's outputs. Supported artifact names can be obtained by
         examining the pipeline graph visualization displayed by
-        :py:func:`RegressionPipeline.inspect()`.
+        :py:func:`ClassificationPipeline.inspect()`.
 
         :param artifact_name: The string name of the artifact. Supported artifact values are:
 
@@ -433,11 +431,11 @@ class RegressionPipeline(_BasePipeline):
             from mlflow.pipelines import Pipeline
             from mlflow.pyfunc import PyFuncModel
 
-            os.chdir("~/mlp-regression-template")
-            regression_pipeline = Pipeline(profile="local")
-            regression_pipeline.run()
-            train_df: pd.DataFrame = regression_pipeline.get_artifact("training_data")
-            trained_model: PyFuncModel = regression_pipeline.get_artifact("model")
+            os.chdir("~/mlp-classification-template")
+            classification_pipeline = Pipeline(profile="local")
+            classification_pipeline.run()
+            train_df: pd.DataFrame = classification_pipeline.get_artifact("training_data")
+            trained_model: PyFuncModel = classification_pipeline.get_artifact("model")
         """
         import mlflow.pyfunc
 
@@ -452,6 +450,18 @@ class RegressionPipeline(_BasePipeline):
             register_step,
         ) = self._steps
 
+        ingest_output_dir = get_step_output_path(self._pipeline_root_path, ingest_step.name, "")
+        split_output_dir = get_step_output_path(self._pipeline_root_path, split_step.name, "")
+        transform_output_dir = get_step_output_path(
+            self._pipeline_root_path, transform_step.name, ""
+        )
+        train_output_dir = get_step_output_path(self._pipeline_root_path, train_step.name, "")
+
+        ingest_scoring_output_dir = get_step_output_path(
+            self._pipeline_root_path, ingest_scoring_step.name, ""
+        )
+        predict_output_dir = get_step_output_path(self._pipeline_root_path, predict_step.name, "")
+
         def log_artifact_not_found_warning(artifact_name, step_name):
             _logger.warning(
                 f"The artifact with name '{artifact_name}' was not found."
@@ -459,7 +469,6 @@ class RegressionPipeline(_BasePipeline):
             )
 
         def read_run_id():
-            train_output_dir = get_step_output_path(self._pipeline_root_path, train_step.name, "")
             run_id_file_path = os.path.join(train_output_dir, "run_id")
             if os.path.exists(run_id_file_path):
                 with open(run_id_file_path, "r") as f:
@@ -470,36 +479,54 @@ class RegressionPipeline(_BasePipeline):
         train_step_tracking_uri = train_step.tracking_config.tracking_uri
         pipeline_root_path = get_pipeline_root_path()
 
-        def read_dataframe_from_path(artifact_path, step_name):
+        def read_dataframe(artifact_name, output_dir, file_name, step_name):
             import pandas as pd
 
-            if os.path.exists(artifact_path):
-                return pd.read_parquet(artifact_path)
+            data_path = os.path.join(output_dir, file_name)
+            if os.path.exists(data_path):
+                return pd.read_parquet(data_path)
             else:
                 log_artifact_not_found_warning(artifact_name, step_name)
                 return None
 
-        artifact_path = self._get_artifact_path(
-            artifact_name
-        )  # path may or may not exist, error handling is in this function
-
         if artifact_name == "ingested_data":
-            return read_dataframe_from_path(artifact_path, ingest_step.name)
+            return read_dataframe(
+                "ingested_data",
+                ingest_output_dir,
+                IngestStep._DATASET_OUTPUT_NAME,
+                ingest_step.name,
+            )
 
         elif artifact_name == "training_data":
-            return read_dataframe_from_path(artifact_path, split_step.name)
+            return read_dataframe(
+                "training_data", split_output_dir, _OUTPUT_TRAIN_FILE_NAME, split_step.name
+            )
 
         elif artifact_name == "validation_data":
-            return read_dataframe_from_path(artifact_path, split_step.name)
+            return read_dataframe(
+                "validation_data", split_output_dir, _OUTPUT_VALIDATION_FILE_NAME, split_step.name
+            )
 
         elif artifact_name == "test_data":
-            return read_dataframe_from_path(artifact_path, split_step.name)
+            return read_dataframe(
+                "test_data", split_output_dir, _OUTPUT_TEST_FILE_NAME, split_step.name
+            )
 
         elif artifact_name == "transformed_training_data":
-            return read_dataframe_from_path(artifact_path, transform_step.name)
+            return read_dataframe(
+                "transformed_training_data",
+                transform_output_dir,
+                "transformed_training_data.parquet",
+                transform_step.name,
+            )
 
         elif artifact_name == "transformed_validation_data":
-            return read_dataframe_from_path(artifact_path, transform_step.name)
+            return read_dataframe(
+                "transformed_validation_data",
+                transform_output_dir,
+                "transformed_validation_data.parquet",
+                transform_step.name,
+            )
 
         elif artifact_name == "model":
             run_id = read_run_id()
@@ -531,8 +558,16 @@ class RegressionPipeline(_BasePipeline):
                 return None
 
         elif artifact_name == "registered_model_version":
-            if os.path.exists(artifact_path):
-                registered_model_info = RegisteredModelVersionInfo.from_json(path=artifact_path)
+            register_output_dir = get_step_output_path(
+                self._pipeline_root_path, register_step.name, ""
+            )
+            registered_model_info_path = os.path.join(
+                register_output_dir, "registered_model_version.json"
+            )
+            if os.path.exists(registered_model_info_path):
+                registered_model_info = RegisteredModelVersionInfo.from_json(
+                    path=registered_model_info_path
+                )
                 with _use_tracking_uri(train_step_tracking_uri, pipeline_root_path):
                     return MlflowClient().get_model_version(
                         name=registered_model_info.name, version=registered_model_info.version
@@ -542,81 +577,18 @@ class RegressionPipeline(_BasePipeline):
                 return None
 
         elif artifact_name == "ingested_scoring_data":
-            return read_dataframe_from_path(artifact_path, ingest_scoring_step.name)
+            return read_dataframe(
+                "ingested_scoring_data",
+                ingest_scoring_output_dir,
+                IngestScoringStep._DATASET_OUTPUT_NAME,
+                ingest_scoring_step.name,
+            )
 
         elif artifact_name == "scored_data":
-            return read_dataframe_from_path(artifact_path, predict_step.name)
-
-        else:
-            raise MlflowException(
-                f"The artifact with name '{artifact_name}' is not supported.",
-                error_code=INVALID_PARAMETER_VALUE,
+            return read_dataframe(
+                "scored_data", predict_output_dir, _SCORED_OUTPUT_FILE_NAME, predict_step.name
             )
 
-    def _get_artifact_path(self, artifact_name: str) -> Optional[str]:
-        """
-        Returns a path to an artifact, which may or may not exist depending on whether or not the
-        corresponding pipeline step has been run.
-        """
-        (
-            ingest_scoring_step,
-            predict_step,
-            ingest_step,
-            split_step,
-            transform_step,
-            train_step,
-            _,
-            register_step,
-        ) = self._steps
-
-        if artifact_name == "ingested_data":
-            ingest_output_dir = get_step_output_path(self._pipeline_root_path, ingest_step.name, "")
-            return os.path.join(ingest_output_dir, IngestStep._DATASET_OUTPUT_NAME)
-        elif artifact_name == "training_data":
-            split_output_dir = get_step_output_path(self._pipeline_root_path, split_step.name, "")
-            return os.path.join(split_output_dir, _OUTPUT_TRAIN_FILE_NAME)
-        elif artifact_name == "validation_data":
-            split_output_dir = get_step_output_path(self._pipeline_root_path, split_step.name, "")
-            return os.path.join(split_output_dir, _OUTPUT_VALIDATION_FILE_NAME)
-        elif artifact_name == "test_data":
-            split_output_dir = get_step_output_path(self._pipeline_root_path, split_step.name, "")
-            return os.path.join(split_output_dir, _OUTPUT_TEST_FILE_NAME)
-        elif artifact_name == "transformed_training_data":
-            transform_output_dir = get_step_output_path(
-                self._pipeline_root_path, transform_step.name, ""
-            )
-            return os.path.join(transform_output_dir, "transformed_training_data.parquet")
-        elif artifact_name == "transformed_validation_data":
-            transform_output_dir = get_step_output_path(
-                self._pipeline_root_path, transform_step.name, ""
-            )
-            return os.path.join(transform_output_dir, "transformed_validation_data.parquet")
-        elif artifact_name == "model":
-            train_output_dir = get_step_output_path(self._pipeline_root_path, train_step.name, "")
-            return os.path.join(train_output_dir, "model", "model.pkl")
-        elif artifact_name == "transformer":
-            transform_output_dir = get_step_output_path(
-                self._pipeline_root_path, transform_step.name, ""
-            )
-            return os.path.join(transform_output_dir, "transformer.pkl")
-        elif artifact_name == "run":
-            train_output_dir = get_step_output_path(self._pipeline_root_path, train_step.name, "")
-            return os.path.join(train_output_dir, "run_id")
-        elif artifact_name == "registered_model_version":
-            register_output_dir = get_step_output_path(
-                self._pipeline_root_path, register_step.name, ""
-            )
-            return os.path.join(register_output_dir, "registered_model_version.json")
-        elif artifact_name == "ingested_scoring_data":
-            ingest_scoring_output_dir = get_step_output_path(
-                self._pipeline_root_path, ingest_scoring_step.name, ""
-            )
-            return os.path.join(ingest_scoring_output_dir, IngestScoringStep._DATASET_OUTPUT_NAME)
-        elif artifact_name == "scored_data":
-            predict_output_dir = get_step_output_path(
-                self._pipeline_root_path, predict_step.name, ""
-            )
-            return os.path.join(predict_output_dir, _SCORED_OUTPUT_FILE_NAME)
         else:
             raise MlflowException(
                 f"The artifact with name '{artifact_name}' is not supported.",
@@ -638,20 +610,20 @@ class RegressionPipeline(_BasePipeline):
             import os
             from mlflow.pipelines import Pipeline
 
-            os.chdir("~/mlp-regression-template")
-            regression_pipeline = Pipeline(profile="local")
+            os.chdir("~/mlp-classification-template")
+            classification_pipeline = Pipeline(profile="local")
             # Run the 'train' step and preceding steps
-            regression_pipeline.run(step="train")
+            classification_pipeline.run(step="train")
             # Clean the cache of the 'transform' step
-            regression_pipeline.clean(step="transform")
+            classification_pipeline.clean(step="transform")
             # Run the 'split' step; outputs are still cached because 'split' precedes
             # 'transform' & 'train'
-            regression_pipeline.run(step="split")
+            classification_pipeline.run(step="split")
             # Run the 'train' step again; the 'transform' and 'train' steps are re-executed because:
             # 1. the cache of the preceding 'transform' step was cleaned and 2. 'train' occurs after
             # 'transform'. The 'ingest' and 'split' steps are not re-executed because their outputs
             # are still cached
-            regression_pipeline.run(step="train")
+            classification_pipeline.run(step="train")
         """
         super().clean(step=step)
 
@@ -670,13 +642,13 @@ class RegressionPipeline(_BasePipeline):
             import os
             from mlflow.pipelines import Pipeline
 
-            os.chdir("~/mlp-regression-template")
-            regression_pipeline = Pipeline(profile="local")
+            os.chdir("~/mlp-classification-template")
+            classification_pipeline = Pipeline(profile="local")
             # Display a visual overview of the pipeline graph.
-            regression_pipeline.inspect()
+            classification_pipeline.inspect()
             # Run the 'train' pipeline step
-            regression_pipeline.run(step="train")
+            classification_pipeline.run(step="train")
             # Display a summary of results from the preceding 'transform' step
-            regression_pipeline.inspect(step="transform")
+            classification_pipeline.inspect(step="transform")
         """
         super().inspect(step=step)

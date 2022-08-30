@@ -50,6 +50,7 @@ class TrainStep(BaseStep):
         self.pipeline_config = pipeline_config
         self.tracking_config = TrackingConfig.from_dict(step_config)
         self.target_col = self.step_config.get("target_col")
+        self.model_type = self.step_config.get("run_args").get("model_type")
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         self.train_module_name, self.estimator_method_name = self.step_config[
             "estimator_method"
@@ -175,7 +176,7 @@ class TrainStep(BaseStep):
                     model=logged_estimator.model_uri,
                     data=dataset,
                     targets=self.target_col,
-                    model_type="regressor",
+                    model_type=self.model_type,
                     evaluators="default",
                     dataset_name=dataset_name,
                     custom_metrics=_load_custom_metric_functions(

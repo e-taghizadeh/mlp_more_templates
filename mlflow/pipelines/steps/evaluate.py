@@ -45,6 +45,7 @@ class EvaluateStep(BaseStep):
         super().__init__(step_config, pipeline_root)
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
         self.target_col = self.step_config.get("target_col")
+        self.model_type = self.step_config.get("run_args").get("model_type")
         self.model_validation_status = "UNKNOWN"
         self.primary_metric = _get_primary_metric(self.step_config)
         self.evaluation_metrics = {metric.name: metric for metric in BUILTIN_PIPELINE_METRICS}
@@ -80,12 +81,23 @@ class EvaluateStep(BaseStep):
         for val_criterion in validation_criteria:
             metric_name = val_criterion["metric"]
             metric_val = metrics.get(metric_name)
-            if metric_val is None:
-                summary[metric_name] = False
-                continue
+            _logger.info(f"______{metric_name}: {metric_val}_____")
             greater_is_better = self.evaluation_metrics[metric_name].greater_is_better
             comp_func = operator.ge if greater_is_better else operator.le
             threshold = val_criterion["threshold"]
+            if metric_val is None:
+                # summary[metric_name] = False
+                summary.append(
+                    MetricValidationResult(
+                        metric=metric_name,
+                        greater_is_better=greater_is_better,
+                        value=metric_val,
+                        threshold=val_criterion["threshold"],
+                        validated=False,
+                    )
+                )
+                continue
+
             validated = comp_func(metric_val, threshold)
             summary.append(
                 MetricValidationResult(
@@ -155,7 +167,7 @@ class EvaluateStep(BaseStep):
                     model=model_uri,
                     data=dataset,
                     targets=self.target_col,
-                    model_type="regressor",
+                    model_type=self.model_type,
                     evaluators="default",
                     dataset_name=dataset_name,
                     custom_metrics=_load_custom_metric_functions(
@@ -328,6 +340,7 @@ class EvaluateStep(BaseStep):
             )
         step_config["metrics"] = pipeline_config.get("metrics")
         step_config["target_col"] = pipeline_config.get("target_col")
+        step_config["run_args"] = pipeline_config.get("run_args")
         step_config.update(
             get_pipeline_tracking_config(
                 pipeline_root_path=pipeline_root,
